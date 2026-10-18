@@ -1,0 +1,713 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Левитация шарика в наклонном воздушном потоке — 3D модель</title>
+<style>
+  :root{
+    --bg1:#150d10; --bg2:#241820; --panel:rgba(30,20,24,.82);
+    --red:#ad0101; --red2:#e24b3a; --tan:#ac956e; --blue:#808da9; --slate:#424e5b;
+    --ink:#f3ece4; --muted:#c7b8ac; --line:rgba(255,255,255,.12);
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;margin:0;}
+  body{
+    font-family:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;
+    background:radial-gradient(120% 90% at 30% 0%,#2a1b20 0%,var(--bg2) 45%,var(--bg1) 100%);
+    color:var(--ink); overflow:hidden;
+  }
+  #app{position:fixed; inset:0;}
+  #view{position:absolute; inset:0; width:100%; height:100%; display:block; cursor:grab;}
+  #view.drag{cursor:grabbing;}
+
+  #title{
+    position:absolute; left:26px; top:20px; pointer-events:none; max-width:52%;
+  }
+  #title h1{
+    font-family:"Century Schoolbook",Georgia,serif; font-weight:700;
+    font-size:23px; margin:0; line-height:1.2; letter-spacing:.2px;
+    text-shadow:0 2px 12px rgba(0,0,0,.6);
+  }
+  #title h1 span{color:var(--red2);}
+  #title p{margin:6px 0 0; color:var(--muted); font-size:12.5px;}
+
+  #hint{position:absolute; left:26px; bottom:18px; color:var(--muted); font-size:12px;
+    background:rgba(0,0,0,.28); border:1px solid var(--line); padding:8px 12px; border-radius:10px; backdrop-filter:blur(6px);}
+  #hint b{color:var(--tan);}
+
+  #panel{
+    position:absolute; right:16px; top:16px; width:322px;
+    background:var(--panel); border:1px solid var(--line); border-radius:16px;
+    padding:14px 16px 16px; backdrop-filter:blur(12px);
+    box-shadow:0 18px 50px rgba(0,0,0,.5); max-height:calc(100% - 32px); overflow:auto;
+  }
+  #panel h2{font-size:13px; letter-spacing:.14em; text-transform:uppercase; color:var(--tan);
+    margin:2px 0 12px; font-weight:700;}
+  .row{margin-bottom:11px;}
+  .row .lab{display:flex; justify-content:space-between; font-size:12.5px; margin-bottom:4px;}
+  .row .lab b{color:#fff; font-weight:600; font-variant-numeric:tabular-nums;}
+  .row .lab span{color:var(--muted);}
+  input[type=range]{-webkit-appearance:none; width:100%; height:5px; border-radius:4px;
+    background:linear-gradient(90deg,var(--red) 0%, var(--tan) 100%); outline:none;}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; width:16px; height:16px;
+    border-radius:50%; background:#fff; border:3px solid var(--red); cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,.5);}
+  input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:#fff;border:3px solid var(--red);cursor:pointer;}
+
+  .btns{display:flex; gap:8px; flex-wrap:wrap; margin:12px 0 6px;}
+  button{
+    font-family:inherit; font-size:12.5px; font-weight:600; color:var(--ink);
+    background:rgba(255,255,255,.06); border:1px solid var(--line); border-radius:9px;
+    padding:8px 11px; cursor:pointer; transition:.15s; flex:1 1 auto;
+  }
+  button:hover{background:rgba(255,255,255,.13); border-color:rgba(255,255,255,.28);}
+  button.primary{background:linear-gradient(180deg,var(--red2),var(--red)); border:none; box-shadow:0 6px 16px rgba(173,1,1,.45);}
+  button.primary:hover{filter:brightness(1.08);}
+  button:active{transform:translateY(1px);}
+
+  select{
+    font-family:inherit; font-size:12.5px; width:100%; color:var(--ink);
+    background:rgba(0,0,0,.35); border:1px solid var(--line); border-radius:9px; padding:7px 9px; margin-top:2px;
+  }
+
+  #readout{
+    position:absolute; left:26px; top:96px; display:grid; grid-template-columns:auto auto; gap:4px 16px;
+    background:rgba(0,0,0,.3); border:1px solid var(--line); border-radius:12px; padding:11px 15px; backdrop-filter:blur(6px);
+    font-size:12.5px;
+  }
+  #readout .k{color:var(--muted);}
+  #readout .v{text-align:right; font-variant-numeric:tabular-nums; font-weight:600;}
+  .ok{color:#7ee787;} .bad{color:var(--red2);} .hi{color:var(--tan);}
+
+  #chartBox{
+    position:absolute; right:16px; bottom:16px; width:352px;
+    background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:10px 12px 6px;
+    backdrop-filter:blur(12px); box-shadow:0 18px 50px rgba(0,0,0,.5);
+  }
+  #chartBox .ct{font-size:11.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--tan); margin-bottom:2px;}
+  #chart{width:100%; height:132px; display:block;}
+
+  #legend{position:absolute; left:26px; bottom:64px; display:flex; gap:14px; font-size:12px; color:var(--muted);}
+  #legend i{display:inline-block; width:20px; height:3px; border-radius:2px; vertical-align:middle; margin-right:5px;}
+
+  #optim{
+    margin-top:8px; font-size:12px; color:var(--muted); line-height:1.45;
+    border-top:1px dashed var(--line); padding-top:8px; min-height:16px;
+  }
+  #optim b{color:#fff;}
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="view"></canvas>
+
+  <div id="title">
+    <h1>Левитация шарика в <span>наклонном</span> воздушном потоке</h1>
+    <p>Интерактивная 3D-модель · физика + численное интегрирование · HTML/CSS/JS</p>
+  </div>
+
+  <div id="readout">
+    <div class="k">Наклон потока α</div><div class="v hi" id="rA">0°</div>
+    <div class="k">Макс. устойчивый угол α<sub>max</sub></div><div class="v hi" id="rAmax">—</div>
+    <div class="k">Высота равновесия h</div><div class="v" id="rH">—</div>
+    <div class="k">Смещение от оси x</div><div class="v" id="rX">—</div>
+    <div class="k">Статус</div><div class="v" id="rS">—</div>
+  </div>
+
+  <div id="legend">
+    <span><i style="background:#ff5b5b"></i>сила тяжести</span>
+    <span><i style="background:#6fb4ff"></i>сопротивление</span>
+    <span><i style="background:#7ee787"></i>возвращающая</span>
+  </div>
+
+  <div id="panel">
+    <h2>Параметры системы</h2>
+    <div class="row"><div class="lab"><span>Скорость потока v₀</span><b id="lv0">13.0 м/с</b></div>
+      <input type="range" id="v0" min="5" max="40" step="0.5" value="13"></div>
+    <div class="row"><div class="lab"><span>Радиус сопла r₀</span><b id="lr0">20 мм</b></div>
+      <input type="range" id="r0" min="6" max="50" step="1" value="20"></div>
+    <div class="row"><div class="lab"><span>Радиус шарика a</span><b id="la">20 мм</b></div>
+      <input type="range" id="a" min="8" max="35" step="1" value="20"></div>
+    <div class="row"><div class="lab"><span>Масса шарика m</span><b id="lm">2.7 г</b></div>
+      <input type="range" id="m" min="0.5" max="15" step="0.1" value="2.7"></div>
+    <div class="row"><div class="lab"><span>Наклон потока α</span><b id="lal">0°</b></div>
+      <input type="range" id="al" min="0" max="89" step="1" value="0"></div>
+
+    <div class="btns">
+      <button id="play" class="primary">Пауза</button>
+      <button id="reset">Сброс</button>
+      <button id="auto">Авто-наклон</button>
+    </div>
+
+    <div class="row" style="margin-top:12px"><div class="lab"><span>График: α<sub>max</sub> от</span></div>
+      <select id="sweep">
+        <option value="v0">скорости потока v₀</option>
+        <option value="m">массы шарика m</option>
+        <option value="a">радиуса шарика a</option>
+        <option value="r0">радиуса сопла r₀</option>
+      </select>
+    </div>
+
+    <div class="btns" style="margin-bottom:0">
+      <button id="optim" class="primary">Оптимизация системы</button>
+    </div>
+    <div id="optim">Нажмите «Оптимизация», чтобы при фиксированной мощности вентилятора найти радиус сопла, максимизирующий α<sub>max</sub>.</div>
+  </div>
+
+  <div id="chartBox">
+    <div class="ct" id="chartTitle">α_max от скорости потока</div>
+    <canvas id="chart"></canvas>
+  </div>
+
+  <div id="hint"><b>Мышь</b> — вращение · <b>колесо</b> — масштаб · перетащите ползунок наклона, чтобы наклонить поток</div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ======================================================================
+   1. МАТЕМАТИКА
+   ====================================================================== */
+const DEG = Math.PI/180;
+const clamp=(v,a,b)=>v<a?a:(v>b?b:v);
+function sub(a,b){return [a[0]-b[0],a[1]-b[1],a[2]-b[2]];}
+function cross(a,b){return [a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];}
+function dot(a,b){return a[0]*b[0]+a[1]*b[1]+a[2]*b[2];}
+function nrm(a){const l=Math.hypot(a[0],a[1],a[2])||1;return [a[0]/l,a[1]/l,a[2]/l];}
+
+/* ======================================================================
+   2. ФИЗИЧЕСКАЯ МОДЕЛЬ
+   Задача: лёгкий шарик в восходящем воздушном потоке.
+   Поток можно наклонить на угол alpha — шарик продолжает удерживаться.
+   Определяем максимальный угол alpha_max устойчивого равновесия.
+   ====================================================================== */
+const PH = { rho:1.225, g:9.81, CD:0.47, Ck:1.40, thetaDeg:11.8, coreK:12.4 };
+PH.c = Math.tan(PH.thetaDeg*DEG);      // тангенс угла раскрытия свободной струи
+PH.core = 6.2*2;                       // длина потенциального ядра (~6.2 диаметра)
+
+// воздушный поток: поле скоростей круглой свободной струи
+// (x,y) — координаты шарика; alpha — наклон; v0,r0 — сопло
+function airField(x, y, alpha, v0, r0){
+  const sa=Math.sin(alpha), ca=Math.cos(alpha);
+  const s  = x*sa + y*ca;               // координата вдоль оси струи
+  const yp = x*ca - y*sa;               // поперечная координата
+  const sc = Math.max(s, 1e-4);
+  const R  = r0 + PH.c*sc;              // радиус струи на высоте s
+  const core = PH.core*r0;              // потенциальное ядро
+  const vc = (sc<core) ? v0 : v0*core/sc;// скорость на оси (ядро + спад ~1/s)
+  const sig= R/2;                       // ширина гауссова профиля
+  const e  = Math.exp(-(yp*yp)/(2*sig*sig));
+  const U  = vc*e;                      // локальная скорость воздуха
+  return {s,yp,R,vc,sig,U,e,sa,ca};
+}
+
+// ускорение шарика: сопротивление + сила тяжести + возвращающая (Бернулли/Коанда)
+function accel(x, y, vx, vy, alpha, ball, noz){
+  const f = airField(x, y, alpha, noz.v0, noz.r0);
+  const tx=f.sa, ty=f.ca;               // орт оси струи
+  const nx=f.ca, ny=-f.sa;              // орт перпендикуляра
+  // относительная скорость потока
+  const wx=f.U*tx - vx, wy=f.U*ty - vy;
+  const w=Math.hypot(wx,wy);
+  const A=Math.PI*ball.a*ball.a;
+  const Fd=0.5*PH.CD*PH.rho*A*w*w;      // аэродинамическое сопротивление
+  let fdx=0, fdy=0;
+  if(w>1e-9){ fdx=Fd*wx/w; fdy=Fd*wy/w; }
+  // возвращающая поперечная сила (Бернулли/Коанда, ∝ локальному динамическому напору)
+  const Fr=-PH.Ck*PH.rho*ball.a*f.vc*f.vc*f.e*f.e*f.yp;
+  const ax=(fdx + Fr*nx)/ball.m;
+  const ay=(fdy + Fr*ny)/ball.m - PH.g;
+  return {ax, ay, f, Fd, Fr};
+}
+
+// проверка устойчивости при данном угле
+function isStable(alpha, ball, noz){
+  let x=0.03*Math.sin(alpha), y=0.03*Math.cos(alpha), vx=0, vy=0;
+  const dt=0.0025, steps=2400;         // 6 с модельного времени
+  let sum=0, cnt=0;
+  for(let i=0;i<steps;i++){
+    const {ax,ay}=accel(x,y,vx,vy,alpha,ball,noz);
+    vx+=ax*dt; vy+=ay*dt; x+=vx*dt; y+=vy*dt;
+    if(y<-0.03 || Math.abs(x)>2.5) return false;
+    if(i>steps*0.6){ sum+=Math.hypot(vx,vy); cnt++; }
+  }
+  return (y>0 && sum/cnt < 0.30);
+}
+
+// максимальный устойчивый угол
+function alphaMax(ball, noz){
+  let best=0;
+  for(let d=1; d<=88; d++){
+    if(isStable(d*DEG, ball, noz)) best=d; else break;
+  }
+  return best;
+}
+
+/* ======================================================================
+   3. КАМЕРА И ПРОЕКЦИЯ
+   ====================================================================== */
+const view=document.getElementById('view');
+const ctx=view.getContext('2d');
+let W=0,H=0,DPR=1;
+const cam={yaw:-0.55, pitch:0.20, dist:1.15, tx:0, ty:0.22, tz:0, fov:52*DEG};
+let camPos=[0,0,0];
+
+function resize(){
+  const r=view.getBoundingClientRect();
+  DPR=Math.min(window.devicePixelRatio||1, 2);
+  W=Math.max(1,Math.round(r.width*DPR));
+  H=Math.max(1,Math.round(r.height*DPR));
+  view.width=W; view.height=H;
+}
+function updateCamPos(){
+  const cp=Math.cos(cam.pitch), sp=Math.sin(cam.pitch);
+  const cy=Math.cos(cam.yaw), sy=Math.sin(cam.yaw);
+  camPos=[ cam.tx - cam.dist*cp*sy, cam.ty - cam.dist*sp, cam.tz - cam.dist*cp*cy ];
+}
+function w2c(p){
+  const dx=p[0]-cam.tx, dy=p[1]-cam.ty, dz=p[2]-cam.tz;
+  const cy=Math.cos(cam.yaw), sy=Math.sin(cam.yaw);
+  const x1= dx*cy - dz*sy, z1= dx*sy + dz*cy;
+  const cp=Math.cos(cam.pitch), sp=Math.sin(cam.pitch);
+  const y2= dy*cp - z1*sp, z2= dy*sp + z1*cp;
+  return [x1, y2, z2+cam.dist];
+}
+function project(c){
+  const f=H*0.5/Math.tan(cam.fov*0.5);
+  const s=f/Math.max(c[2],1e-4);
+  return [W*0.5 + c[0]*s, H*0.5 - c[1]*s, c[2]];
+}
+
+/* ======================================================================
+   4. ГЕОМЕТРИЯ
+   ====================================================================== */
+function buildSphere(nu,nv){
+  const verts=[], faces=[];
+  for(let j=0;j<=nv;j++){
+    const th=Math.PI*j/nv, st=Math.sin(th), ct=Math.cos(th);
+    for(let i=0;i<=nu;i++){
+      const ph=2*Math.PI*i/nu;
+      verts.push([st*Math.cos(ph), ct, st*Math.sin(ph)]);
+    }
+  }
+  const idx=(i,j)=> j*(nu+1)+i;
+  for(let j=0;j<nv;j++) for(let i=0;i<nu;i++)
+    faces.push([idx(i,j), idx(i+1,j), idx(i+1,j+1), idx(i,j+1)]);
+  return {verts,faces};
+}
+// усечённый конус вдоль +Y от y0 до y1 (для корпуса сопла и струи)
+function buildTube(seg, y0, r0, y1, r1, capTop){
+  const verts=[], faces=[];
+  for(let i=0;i<seg;i++){
+    const ph=2*Math.PI*i/seg, cx=Math.cos(ph), cz=Math.sin(ph);
+    verts.push([r0*cx, y0, r0*cz]);
+    verts.push([r1*cx, y1, r1*cz]);
+  }
+  for(let i=0;i<seg;i++){
+    const a=2*i, b=2*((i+1)%seg);
+    faces.push([a, b, b+1, a+1]);
+  }
+  if(capTop){
+    const c=verts.length; verts.push([0,y1,0]);
+    for(let i=0;i<seg;i++){ const a=2*i, b=2*((i+1)%seg); faces.push([a+1, b+1, c]); }
+  }
+  return {verts,faces};
+}
+const SPHERE=buildSphere(22,14);
+
+/* ======================================================================
+   5. РЕНДЕР
+   ====================================================================== */
+const LIGHT=nrm([0.42,0.86,0.32]);
+function shade(rgb, n){
+  const d=Math.max(0, dot(n,LIGHT));
+  const k=0.34+0.66*d;
+  return 'rgb('+clamp(rgb[0]*k,0,255).toFixed(0)+','+clamp(rgb[1]*k,0,255).toFixed(0)+','+clamp(rgb[2]*k,0,255).toFixed(0)+')';
+}
+function rotZ(v, alpha, sign){         // поворот вокруг Z (в плоскости наклона)
+  const ca=Math.cos(alpha), sa=Math.sin(alpha)*sign;
+  return [v[0]*ca + v[1]*sa, -v[0]*sa + v[1]*ca, v[2]];
+}
+// отрисовка выпуклого меша с отбраковкой нелицевых граней
+function drawConvex(spec, transform, rgb){
+  const cs=[], sc=[], ws=[];
+  for(const v of spec.verts){
+    const p=transform(v); ws.push(p);
+    const c=w2c(p); cs.push(c); sc.push(project(c));
+  }
+  for(const f of spec.faces){
+    const p0=ws[f[0]], p1=ws[f[1]], p2=ws[f[2]];
+    const n=nrm(cross(sub(p1,p0), sub(p2,p0)));
+    const cen=[(p0[0]+p1[0]+p2[0])/3,(p0[1]+p1[1]+p2[1])/3,(p0[2]+p1[2]+p2[2])/3];
+    const viewv=[camPos[0]-cen[0],camPos[1]-cen[1],camPos[2]-cen[2]];
+    if(dot(n,viewv)<=0) continue;      // грань отвёрнута
+    ctx.beginPath();
+    ctx.moveTo(sc[f[0]][0], sc[f[0]][1]);
+    for(let i=1;i<f.length;i++) ctx.lineTo(sc[f[i]][0], sc[f[i]][1]);
+    ctx.closePath();
+    ctx.fillStyle=shade(rgb,n);
+    ctx.fill();
+  }
+}
+function drawLine3(a,b,style,width,dash){
+  const A=project(w2c(a)), B=project(w2c(b));
+  ctx.save(); if(dash) ctx.setLineDash(dash);
+  ctx.strokeStyle=style; ctx.lineWidth=width;
+  ctx.beginPath(); ctx.moveTo(A[0],A[1]); ctx.lineTo(B[0],B[1]); ctx.stroke();
+  ctx.restore();
+}
+function drawArrow(from, dir, len, style, width){
+  const d=nrm([dir[0],dir[1],dir[2]]);
+  const tip=[from[0]+d[0]*len, from[1]+d[1]*len, from[2]+d[2]*len];
+  const A=project(w2c(from)), T=project(w2c(tip));
+  ctx.strokeStyle=style; ctx.fillStyle=style; ctx.lineWidth=width;
+  ctx.beginPath(); ctx.moveTo(A[0],A[1]); ctx.lineTo(T[0],T[1]); ctx.stroke();
+  // наконечник
+  const ang=Math.atan2(T[1]-A[1], T[0]-A[0]);
+  const hl=11*DPR, hw=5.5*DPR;
+  ctx.beginPath();
+  ctx.moveTo(T[0],T[1]);
+  ctx.lineTo(T[0]-hl*Math.cos(ang-0.42), T[1]-hl*Math.sin(ang-0.42));
+  ctx.lineTo(T[0]-hl*Math.cos(ang+0.42), T[1]-hl*Math.sin(ang+0.42));
+  ctx.closePath(); ctx.fill();
+}
+
+/* --- частицы потока --- */
+const PARTICLES=[];
+for(let i=0;i<170;i++) PARTICLES.push({
+  s: Math.random(), rho: Math.random(), phi: Math.random()*2*Math.PI, sp: 0.5+Math.random()*0.9
+});
+
+/* ======================================================================
+   6. СОСТОЯНИЕ СИСТЕМЫ
+   ====================================================================== */
+const S={
+  v0:13, r0:0.020, a:0.020, m:0.0027,
+  alpha:0, running:true, autoTilt:false, autoDir:1,
+  bx:0, by:0.04, bvx:0, bvy:0, status:true,
+  amax:0, sweep:'v0', chartData:null
+};
+function ball(){ return {a:S.a, m:S.m}; }
+function noz(){ return {v0:S.v0, r0:S.r0}; }
+function warmup(){
+  S.bx=0.03*Math.sin(S.alpha); S.by=0.03*Math.cos(S.alpha); S.bvx=0; S.bvy=0;
+  for(let i=0;i<2200;i++) step(0.0025);
+}
+function step(dt){
+  const {ax,ay}=accel(S.bx,S.by,S.bvx,S.bvy,S.alpha,ball(),noz());
+  S.bvx+=ax*dt; S.bvy+=ay*dt; S.bx+=S.bvx*dt; S.by+=S.bvy*dt;
+  if(S.by < -0.02){ S.by=-0.02; S.bvy=0; S.bvx*=0.5; }
+  if(Math.abs(S.bx)>1.4){ S.bx=Math.sign(S.bx)*1.4; S.bvx*=-0.2; }
+}
+
+/* ======================================================================
+   7. ОТРИСОВКА СЦЕНЫ
+   ====================================================================== */
+function draw(){
+  updateCamPos();
+  // фон
+  const g=ctx.createRadialGradient(W*0.32,H*0.02,10, W*0.5,H*0.5, Math.max(W,H)*0.85);
+  g.addColorStop(0,'#2b1c22'); g.addColorStop(0.5,'#1d1418'); g.addColorStop(1,'#120c0f');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+
+  const alpha=S.alpha;
+
+  /* --- сетка пола --- */
+  const ext=0.34, N=12;
+  for(let i=0;i<=N;i++){
+    const p=-ext + 2*ext*i/N;
+    drawLine3([p,0,-ext],[p,0,ext], 'rgba(255,255,255,0.055)', 1);
+    drawLine3([-ext,0,p],[ext,0,p], 'rgba(255,255,255,0.055)', 1);
+  }
+  // оси
+  drawLine3([0,0,0],[ext*1.15,0,0], 'rgba(226,75,58,0.55)', 1.6);
+  drawLine3([0,0,0],[0,ext*1.5,0], 'rgba(172,149,110,0.55)', 1.6);
+  drawLine3([0,0,0],[0,0,ext*1.15], 'rgba(128,141,169,0.55)', 1.6);
+
+  /* --- вертикаль (для наглядности угла) --- */
+  drawLine3([0,0,0],[0,ext*1.5,0], 'rgba(255,255,255,0.18)', 1, [6*DPR,7*DPR]);
+
+  /* --- струя: полупрозрачная труба --- */
+  const Ymax=0.55;
+  const rings=[]; const rSeg=20, rN=16;
+  const tube=buildTube(rSeg, 0, S.r0, Ymax, S.r0+PH.c*Ymax, false);
+  const tf=v=>{ const w=rotZ(v,alpha,1); return w; };
+  const quadDepth=[];
+  const cs=[], sc=[];
+  for(const v of tube.verts){ const p=tf(v); const c=w2c(p); cs.push(c); sc.push(project(c)); }
+  for(const f of tube.faces){
+    let z=0; for(const k of f) z+=cs[k][2]; z/=f.length;
+    quadDepth.push({f,z});
+  }
+  quadDepth.sort((a,b)=>b.z-a.z);
+  ctx.save();
+  for(const q of quadDepth){
+    const f=q.f;
+    ctx.beginPath();
+    ctx.moveTo(sc[f[0]][0],sc[f[0]][1]);
+    for(let i=1;i<f.length;i++) ctx.lineTo(sc[f[i]][0],sc[f[i]][1]);
+    ctx.closePath();
+    ctx.fillStyle='rgba(190,215,255,0.055)';
+    ctx.fill();
+  }
+  ctx.restore();
+
+  /* --- частицы потока --- */
+  const t=performance.now()*0.001;
+  ctx.save();
+  for(const P of PARTICLES){
+    P.s += 0.0009*P.sp;
+    if(P.s>1){ P.s=0; P.rho=Math.random(); P.phi=Math.random()*2*Math.PI; }
+    const s=P.s*Ymax;
+    const rr=S.r0+PH.c*s;
+    const rad=Math.sqrt(P.rho)*rr*0.95;
+    const local=[rad*Math.cos(P.phi+t*0.2*P.sp), s, rad*Math.sin(P.phi+t*0.2*P.sp)];
+    const world=rotZ(local,alpha,1);
+    const c=w2c(world); if(c[2]<0.02) continue;
+    const p=project(c);
+    const fade=1-P.s*0.55;
+    const r=(2.4+1.6*Math.sin(t*3+P.phi*7))*DPR;
+    ctx.globalAlpha=0.5*fade;
+    ctx.fillStyle='#e6f2ff';
+    ctx.beginPath(); ctx.arc(p[0],p[1],Math.max(0.6,r),0,6.283); ctx.fill();
+  }
+  ctx.restore();
+
+  /* --- сопло --- */
+  const nozzleBody={verts:[], faces:[]};
+  {
+    const seg=20;
+    const yb=-0.045, rb=S.r0*1.5, yt=0, rt=S.r0;
+    const tb=buildTube(seg, yb, rb, yt, rt, false);
+    // нижняя крышка
+    const ci=tb.verts.length; tb.verts.push([0,yb,0]);
+    for(let i=0;i<seg;i++){ const a1=2*i, b1=2*((i+1)%seg); tb.faces.push([a1, b1, ci]); }
+    // верхнее кольцо (тонкий борт)
+    const tb2=buildTube(seg, yt, rt, yt+0.004, rt*1.06, true);
+    // объединяем
+    const off=tb.verts.length;
+    for(const v of tb2.verts) tb.verts.push(v);
+    for(const f of tb2.faces) tb.faces.push(f.map(k=>k+off));
+    nozzleBody.verts=tb.verts; nozzleBody.faces=tb.faces;
+  }
+  drawConvex(nozzleBody, v=>rotZ(v,alpha,1), [138,144,152]);
+
+  /* --- шарик --- */
+  const bx=S.bx, by=S.by, a=S.a;
+  drawConvex(SPHERE, v=>[v[0]*a+bx, v[1]*a+by, v[2]*a], [244,196,92]);
+  // блик
+  {
+    const c=w2c([bx+a*0.4, by+a*0.45, a*0.55]);
+    if(c[2]>0){ const p=project(c); const rr=(a*0.75)*(H*0.5/Math.tan(cam.fov*0.5))/c[2];
+      const gg=ctx.createRadialGradient(p[0],p[1],0,p[0],p[1],Math.max(2,rr));
+      gg.addColorStop(0,'rgba(255,255,255,0.85)'); gg.addColorStop(1,'rgba(255,255,255,0)');
+      ctx.fillStyle=gg; ctx.beginPath(); ctx.arc(p[0],p[1],Math.max(2,rr),0,6.283); ctx.fill();
+    }
+  }
+
+  /* --- векторы сил --- */
+  {
+    const f=airField(bx,by,alpha,S.v0,S.r0);
+    const tx=f.sa, ty=f.ca, nx=f.ca, ny=-f.sa;
+    const wx=f.U*tx-S.bvx, wy=f.U*ty-S.bvy, w=Math.hypot(wx,wy)||1e-9;
+    const Fd=0.5*PH.CD*PH.rho*Math.PI*a*a*w*w;
+    const fx=Fd*wx/w, fy=Fd*wy/w;
+    const Fr=-PH.Ck*PH.rho*a*f.vc*f.vc*f.e*f.e*f.yp;
+    const Fg=S.m*PH.g;
+    const scale=0.0016/Math.max(S.m*PH.g,1e-9); // нормировка длины
+    const base=[bx,by,0];
+    drawArrow(base,[0,-1,0], Fg*scale, '#ff5b5b', 2.6*DPR);
+    drawArrow(base,[fx,fy,0], Math.hypot(fx,fy)*scale, '#6fb4ff', 2.4*DPR);
+    if(Math.abs(Fr)>1e-9) drawArrow(base,[Fr*nx,Fr*ny,0], Math.abs(Fr)*scale, '#7ee787', 2.4*DPR);
+  }
+}
+
+/* ======================================================================
+   8. ГРАФИК α_max
+   ====================================================================== */
+const chart=document.getElementById('chart');
+const cctx=chart.getContext('2d');
+function computeSweep(){
+  const key=S.sweep, data=[];
+  const ball0=ball(), noz0=noz();
+  const N=26;
+  if(key==='v0'){
+    for(let i=0;i<=N;i++){ const v0=6+ i*(38-6)/N; data.push({x:v0, y:alphaMax(ball0,{v0,r0:S.r0})}); }
+  } else if(key==='m'){
+    for(let i=0;i<=N;i++){ const m=0.001+ i*(0.012-0.001)/N; data.push({x:m*1000, y:alphaMax({a:S.a,m},{v0:S.v0,r0:S.r0})}); }
+  } else if(key==='a'){
+    for(let i=0;i<=N;i++){ const a=0.009+ i*(0.033-0.009)/N; data.push({x:a*1000, y:alphaMax({a,m:S.m},{v0:S.v0,r0:S.r0})}); }
+  } else {
+    for(let i=0;i<=N;i++){ const r0=0.008+ i*(0.05-0.008)/N; data.push({x:r0*1000, y:alphaMax(ball0,{v0:S.v0,r0})}); }
+  }
+  S.chartData={key, data};
+}
+function drawChart(){
+  const d=S.chartData; if(!d) return;
+  const r=chart.getBoundingClientRect();
+  const dpr=Math.min(window.devicePixelRatio||1,2);
+  chart.width=Math.max(1,Math.round(r.width*dpr));
+  chart.height=Math.max(1,Math.round(r.height*dpr));
+  const w=chart.width, h=chart.height;
+  cctx.clearRect(0,0,w,h);
+  const padL=30*dpr, padR=8*dpr, padT=10*dpr, padB=20*dpr;
+  const xmin=d.data[0].x, xmax=d.data[d.data.length-1].x;
+  const ymax=90;
+  const px=v=> padL + (v-xmin)/(xmax-xmin)*(w-padL-padR);
+  const py=v=> h-padB - v/ymax*(h-padT-padB);
+  // сетка
+  cctx.strokeStyle='rgba(255,255,255,0.10)'; cctx.lineWidth=1;
+  cctx.fillStyle='rgba(199,184,172,0.85)'; cctx.font=(9.5*dpr)+'px Segoe UI';
+  for(const yv of [0,30,60,90]){
+    cctx.beginPath(); cctx.moveTo(padL,py(yv)); cctx.lineTo(w-padR,py(yv)); cctx.stroke();
+    cctx.fillText(yv+'°', 2*dpr, py(yv)+3*dpr);
+  }
+  // текущее значение
+  const cur = d.key==='v0'?S.v0 : d.key==='m'?S.m*1000 : d.key==='a'?S.a*1000 : S.r0*1000;
+  // кривая
+  cctx.strokeStyle='#e24b3a'; cctx.lineWidth=2*dpr; cctx.beginPath();
+  d.data.forEach((pt,i)=>{ const X=px(pt.x), Y=py(pt.y); i?cctx.lineTo(X,Y):cctx.moveTo(X,Y); });
+  cctx.stroke();
+  cctx.fillStyle='rgba(173,1,1,0.18)';
+  cctx.lineTo(px(d.data[d.data.length-1].x), py(0));
+  cctx.lineTo(px(xmin), py(0)); cctx.closePath(); cctx.fill();
+  // маркер текущего
+  if(cur>=xmin && cur<=xmax){
+    cctx.fillStyle='#fff'; cctx.strokeStyle='#ad0101'; cctx.lineWidth=2*dpr;
+    cctx.beginPath(); cctx.arc(px(cur), py(S.amax), 4*dpr, 0, 6.283); cctx.fill(); cctx.stroke();
+  }
+  // подпись оси
+  cctx.fillStyle='rgba(199,184,172,0.9)';
+  cctx.fillText(Math.round(xmin)+'', padL, h-6*dpr);
+  cctx.fillText(Math.round(xmax)+'', w-padR-18*dpr, h-6*dpr);
+}
+
+/* ======================================================================
+   9. UI
+   ====================================================================== */
+const el=id=>document.getElementById(id);
+const $v0=el('v0'), $r0=el('r0'), $a=el('a'), $m=el('m'), $al=el('al');
+function syncLabels(){
+  el('lv0').textContent=S.v0.toFixed(1)+' м/с';
+  el('lr0').textContent=Math.round(S.r0*1000)+' мм';
+  el('la').textContent=Math.round(S.a*1000)+' мм';
+  var gm=S.m*1000; el('lm').textContent=(gm<10?gm.toFixed(1):gm.toFixed(0))+' г';
+  el('lal').textContent=Math.round(S.alpha/DEG)+'°';
+  el('rA').textContent=Math.round(S.alpha/DEG)+'°';
+}
+function refreshAmax(){
+  S.amax=alphaMax(ball(),noz());
+  el('rAmax').textContent=S.amax+'°';
+}
+function refreshReadout(){
+  el('rH').textContent=(S.by*100).toFixed(1)+' см';
+  el('rX').textContent=(S.bx*100).toFixed(1)+' см';
+  const st=el('rS');
+  if(S.by<=0.001){ st.textContent='шарик упал'; st.className='v bad'; }
+  else if(S.alpha/DEG<=S.amax+0.5){ st.textContent='устойчиво'; st.className='v ok'; }
+  else { st.textContent='сорвался'; st.className='v bad'; }
+}
+let sweepTimer=null;
+function scheduleSweep(){ clearTimeout(sweepTimer); sweepTimer=setTimeout(function(){ computeSweep(); drawChart(); }, 180); }
+function bindRange(node, key, scale){
+  node.addEventListener('input',()=>{
+    S[key]=parseFloat(node.value)*scale;
+    if(key!=='alpha') warmup();
+    syncLabels(); refreshAmax(); refreshReadout();
+    scheduleSweep();
+  });
+}
+bindRange($v0,'v0',1);
+bindRange($r0,'r0',0.001);
+bindRange($a,'a',0.001);
+bindRange($m,'m',0.001);
+bindRange($al,'alpha',DEG);
+
+el('play').addEventListener('click',e=>{ S.running=!S.running; e.target.textContent=S.running?'Пауза':'Пуск'; });
+el('reset').addEventListener('click',()=>{ warmup(); S.status=true; });
+el('auto').addEventListener('click',e=>{ S.autoTilt=!S.autoTilt; e.target.textContent=S.autoTilt?'Стоп наклона':'Авто-наклон'; });
+el('sweep').addEventListener('change',e=>{ S.sweep=e.target.value; S.chartData=null; computeSweep(); drawChart(); updateChartTitle(); });
+function updateChartTitle(){
+  const names={v0:'скорости потока v₀', m:'массы шарика m', a:'радиуса шарика a', r0:'радиуса сопла r₀'};
+  el('chartTitle').textContent='α_max от '+names[S.sweep];
+}
+el('optim').addEventListener('click',runOptimize);
+
+function runOptimize(){
+  const P=100;                  // фиксированная мощность вентилятора, Вт
+  const b=ball();
+  let best={amax:-1};
+  for(let mm=8; mm<=50; mm+=1){
+    const r0=mm*0.001;
+    let v0=Math.cbrt(2*P/(PH.rho*Math.PI*r0*r0));
+    v0=Math.min(v0,42);
+    const am=alphaMax(b,{v0,r0});
+    if(am>best.amax) best={amax:am, r0, v0};
+  }
+  S.r0=best.r0; S.v0=best.v0; $r0.value=Math.round(best.r0*1000); $v0.value=best.v0.toFixed(1);
+  warmup(); syncLabels(); refreshAmax(); refreshReadout();
+  S.chartData=null; computeSweep(); drawChart();
+  el('optim').innerHTML='<b>Оптимум найден:</b> при мощности P=100 Вт лучший радиус сопла r₀='+
+     Math.round(best.r0*1000)+' мм (v₀='+best.v0.toFixed(1)+' м/с), максимальный устойчивый угол α<sub>max</sub>=<b>'+
+     best.amax+'°</b>.';
+}
+
+/* --- вращение камеры --- */
+let drag=false, lx=0, ly=0;
+view.addEventListener('pointerdown',e=>{ drag=true; lx=e.clientX; ly=e.clientY; view.classList.add('drag'); view.setPointerCapture(e.pointerId); });
+view.addEventListener('pointermove',e=>{
+  if(!drag) return;
+  cam.yaw += (e.clientX-lx)*0.006;
+  cam.pitch = clamp(cam.pitch + (e.clientY-ly)*0.006, -0.4, 1.25);
+  lx=e.clientX; ly=e.clientY;
+});
+view.addEventListener('pointerup',e=>{ drag=false; view.classList.remove('drag'); });
+view.addEventListener('wheel',e=>{ e.preventDefault(); cam.dist=clamp(cam.dist*(1+Math.sign(e.deltaY)*0.08),0.5,3.2); },{passive:false});
+
+/* ======================================================================
+   10. ГЛАВНЫЙ ЦИКЛ
+   ====================================================================== */
+let last=performance.now(), uiTick=0;
+function loop(now){
+  const dtReal=Math.min((now-last)/1000, 0.05); last=now;
+  if(S.running){
+    const sub=Math.max(1, Math.min(8, Math.ceil(dtReal/0.0016)));
+    const dt=dtReal/sub;
+    for(let i=0;i<sub;i++) step(dt);
+    if(S.autoTilt){
+      S.alpha += S.autoDir*0.35*DEG*(dtReal*60);
+      if(S.alpha>=S.amax*DEG){ S.alpha=S.amax*DEG; S.autoDir=-1; }
+      if(S.alpha<=0){ S.alpha=0; S.autoDir=1; }
+      $al.value=Math.round(S.alpha/DEG); syncLabels();
+    }
+  }
+  draw();
+  uiTick++;
+  if(uiTick%6===0) refreshReadout();
+  requestAnimationFrame(loop);
+}
+
+/* --- старт --- */
+function init(){
+  resize();
+  // параметры из URL (для скриншота): ?shot=1&alpha=30&v=13
+  const q=new URLSearchParams(location.search);
+  if(q.has('alpha')){ S.alpha=clamp(parseFloat(q.get('alpha')),0,89)*DEG; $al.value=Math.round(S.alpha/DEG); }
+  if(q.has('v')){ S.v0=parseFloat(q.get('v')); $v0.value=S.v0; }
+  if(q.has('r0')){ S.r0=parseFloat(q.get('r0'))/1000; $r0.value=Math.round(S.r0*1000); }
+  warmup();
+  syncLabels(); refreshAmax(); refreshReadout();
+  computeSweep(); updateChartTitle(); drawChart();
+  if(q.has('shot')){ S.running=false; el('play').textContent='Пуск';
+    cam.yaw=-0.60; cam.pitch=0.15; cam.dist=0.82; cam.ty=0.22; }
+  if(q.has('clean')){ ['title','readout','legend','panel','chartBox','hint'].forEach(function(id){ var e=el(id); if(e) e.style.display='none'; }); }
+  requestAnimationFrame(loop);
+}
+window.addEventListener('resize',()=>{ resize(); drawChart(); });
+init();
+
+})();
+</script>
+</body>
+</html>
